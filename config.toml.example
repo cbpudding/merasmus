@@ -1,0 +1,23 @@
+token = "<your-bot-token>"
+prefix = "!"
+guild_id = "<your-guild-id>"
+application_id = "<your-bot-id>" # Needed for slash-commands to function
+
+[[role]]
+category = "Class"
+names = ["Soldier", "Demoman"]
+
+[[role]]
+category = "Region"
+names = ["US East", "US West"]
+
+[[servers]]
+name = "Payload (US East)"
+# Must be an ip, not domain for now
+ip = "3.225.16.31"
+port = 27015
+
+[[servers]]
+name = "Fake Server (Alaska)"
+ip = "127.0.0.1"
+port = 27015
