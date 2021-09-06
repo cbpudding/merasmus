@@ -1,5 +1,4 @@
-use bytes::{Buf, BufMut, Bytes, BytesMut};
-
+use a2s::A2SClient;
 use serenity::{
     async_trait,
     client::{bridge::gateway::GatewayIntents, Client, Context, EventHandler},
@@ -18,12 +17,11 @@ use serenity::{
     },
     prelude::TypeMapKey,
 };
-
-use tokio::{net::UdpSocket, time::timeout};
-
-use std::fs;
+use std::{error::Error, fs};
 
 mod config;
+
+const EMBED_COLOR: u32 = 0x374c0c;
 
 struct ConfigurationContainer;
 impl TypeMapKey for ConfigurationContainer {
@@ -148,7 +146,7 @@ impl EventHandler for Handler {
                                 .interaction_response_data(|m| {
                                     // Create the embed
                                     m.create_embed(|e| {
-                                        e.color(0x374c0c);
+                                        e.color(EMBED_COLOR);
                                         e.title("Available Roles");
                                         e.description(format!(
                                             "Modify your roles with:\n{}role add/remove <role>",
@@ -222,7 +220,7 @@ async fn role(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                 .send_message(ctx, |m| {
                     // Create the embed
                     m.embed(|e| {
-                        e.color(0x374c0c);
+                        e.color(EMBED_COLOR);
                         e.title("Available Roles");
                         e.description(format!(
                             "Modify your roles with:\n{}role add/remove <role>",
@@ -297,74 +295,14 @@ async fn role(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     }
 }
 
-// Helper function to read null-terminated strings from the server query
-fn read_string(bytes: &mut Bytes) -> String {
-    let mut string = Vec::new();
-    let mut byte;
-    loop {
-        byte = bytes.get_u8();
-        if byte == 0x00 {
-            break;
-        } else {
-            string.push(byte);
-        }
-    }
-    String::from_utf8_lossy(&string).into()
-}
-
 async fn query_server(
-    name: &str,
+    name: &str, // Backup name in case we don't receive one from the server
     address: String,
-) -> Result<(String, String), Box<dyn std::error::Error>> {
-    // Bind to any port and address and connect to the server
-    let socket = UdpSocket::bind("0.0.0.0:0").await?;
-    socket.connect(&address).await?;
-
-    // Create query packet
-    let mut buf = BytesMut::with_capacity(29);
-    buf.put_slice(&[0xFF, 0xFF, 0xFF, 0xFF]); // Header
-    buf.put_u8(0x54); // A2S_INFO
-    buf.put_slice(b"Source Engine Query\0"); // Exists for some reason
-    buf.put_slice(&[0xFF, 0xFF, 0xFF, 0xFF]); // Default challenge
-
-    // Send the A2S_INFO packet
-    socket.send(&buf).await?;
-
-    let mut reply_buf = [0u8; 1024];
-
-    let recv_future = socket.recv(&mut reply_buf);
-    // Throw an error if a response is not recieved within 300ms
-    timeout(std::time::Duration::from_millis(300), recv_future).await??;
-
-    // Replace reply_buf with a helpful Bytes buffer
-    let mut reply_buf = Bytes::copy_from_slice(&reply_buf);
-
-    if reply_buf.get_u32() == 0xFFFFFFFF {
-        let packet_type = reply_buf.get_u8(); // A2S_INFO should be 0x49
-        if packet_type != 0x49 {
-            // Throw error
-            return Ok((name.into(), "*Invalid response received from server".into()));
-        }
-        let _protocol = reply_buf.get_u8();
-        let name = read_string(&mut reply_buf);
-        let map = read_string(&mut reply_buf);
-        let _folder = read_string(&mut reply_buf);
-        let _game = read_string(&mut reply_buf);
-        let _steamid = reply_buf.get_u16();
-        let players = reply_buf.get_u8();
-        let max_players = reply_buf.get_u8();
-        // There is more, but I do not see more important data
-
-        Ok((
-            name,
-            format!(
-                "| {} | {}/{} | Join: steam://connect/{} |",
-                map, players, max_players, address
-            ),
-        ))
-    } else {
-        Ok((name.into(), "*Invalid response received from server".into()))
-    }
+) -> Result<(String, String), Box<dyn Error>> {
+    // Create an A2SClient and query the server
+    let client = A2SClient::new().await?;
+    let info = client.info(&address).await?;
+    Ok((info.name, format!("| {} | {}/{} | Join: steam://connect/{} |", info.map, info.players, info.max_players, address)))
 }
 
 #[command]
@@ -391,7 +329,7 @@ async fn servers(ctx: &Context, msg: &Message) -> CommandResult {
         channel
             .send_message(ctx, |m| {
                 m.embed(|e| {
-                    e.color(0x374c0c);
+                    e.color(EMBED_COLOR);
                     e.title("Breadpudding's Server Status");
 
                     for item in &server_info {
