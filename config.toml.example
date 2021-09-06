@@ -13,7 +13,6 @@ names = ["US East", "US West"]
 
 [[servers]]
 name = "Payload (US East)"
-# Must be an ip, not domain for now
 ip = "3.225.16.31"
 port = 27015
 
