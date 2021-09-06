@@ -149,7 +149,7 @@ impl EventHandler for Handler {
                                         e.color(EMBED_COLOR);
                                         e.title("Available Roles");
                                         e.description(format!(
-                                            "Modify your roles with:\n{}role add/remove <role>",
+                                            "Modify your roles with:\n{}role <role>",
                                             &config.prefix
                                         ));
 
@@ -223,7 +223,7 @@ async fn role(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                         e.color(EMBED_COLOR);
                         e.title("Available Roles");
                         e.description(format!(
-                            "Modify your roles with:\n{}role add/remove <role>",
+                            "Modify your roles with:\n{}role <role>",
                             &config.prefix
                         ));
 
@@ -302,7 +302,13 @@ async fn query_server(
     // Create an A2SClient and query the server
     let client = A2SClient::new().await?;
     let info = client.info(&address).await?;
-    Ok((info.name, format!("| {} | {}/{} | Join: steam://connect/{} |", info.map, info.players, info.max_players, address)))
+    Ok((
+        info.name,
+        format!(
+            "| {} | {}/{} | Join: steam://connect/{} |",
+            info.map, info.players, info.max_players, address
+        ),
+    ))
 }
 
 #[command]
